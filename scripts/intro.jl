@@ -124,7 +124,7 @@ end
     K_root_stem = 800, [description = "Hydraulic conductivity between root and stem", unit = u"g / hr / MPa"],
     K_stem_leaf = 600, [description = "Hydraulic conductivity between stem and leaf", unit = u"g / hr / MPa"],
     K_leaf_air = 1e-3, [description = "Hydraulic conductivity between leaf and air", unit = u"g / hr / MPa"],
-    A_max = 10, [description = "Maximum rate of photosynthesis", unit = u"mol / m^3 / hr"],
+    A_max = 15, [description = "Maximum rate of photosynthesis", unit = u"mol / m^3 / hr"],
     A_0 = 0, [description = "Rate of photosynthesis if there is no photosynthesis", unit = u"mol / m^3 / hr"],
     R = 1.5, [description = "Rate of cellular respiration", unit = u"mol / m^3 / hr"],
     K_M = 0.1, [description = "Rate of metabolite diffusion", unit = u"hr^-1"],
@@ -136,8 +136,11 @@ val(x::Quantity) = x.val
 
 A_n(t, A_max) = A_max/2 * (sin(val(t) * pi/12 - pi/2) + 1) # simulate day and night cycle of light
 # plot(t -> A_n(t, 5), xlims = (0, 48), xticks = [0, 12, 24, 36, 48])
-
 @register_symbolic A_n(t, A_max)
+
+A_n_decreasing(t, A_max) = exp(-1e-3*val(t)) * A_n(t, A_max) # simulate decreasing light intensity (e.g. autumn)
+# plot(t -> A_n_decreasing(t, 5), xlims = (0, 24*31), xticks = 0:48:24*31)
+@register_symbolic A_n_decreasing(t, A_max)
 
 ## connections themselves
 connections = [
@@ -147,7 +150,7 @@ connections = [
 
     root.ΔM ~ A_0 - R + K_M * (stem.M - root.M),
     stem.ΔM ~ A_0 - R + K_M * (root.M - stem.M) + K_M * (leaf.M - stem.M),
-    leaf.ΔM ~ A_n(t, A_max) - R + K_M * (stem.M - leaf.M)
+    leaf.ΔM ~ A_n_decreasing(t, A_max) - R + K_M * (stem.M - leaf.M)
 ]
 
 
@@ -186,7 +189,7 @@ u0_ext = union(u0, u0_req) # add actual values of non-dummy initial states
 u0_full = unique(x -> x[1], u0_ext) # remove duplicates
 
 ## define and solve problem
-prob = ODEProblem(plant_simp, u0_full, (0.0, 24.0*31))
+prob = ODEProblem(plant_simp, u0_full, (0.0, 24.0*61))
 sol = solve(prob)
 
 ## plot solution
